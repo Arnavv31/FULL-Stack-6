@@ -1,0 +1,101 @@
+// ==============================
+// JWT Authentication Banking API
+// ==============================
+
+import express from "express";
+import jwt from "jsonwebtoken";
+
+// ------------------------------
+// Configuration
+// ------------------------------
+const app = express();
+app.use(express.json());
+const PORT = 3000;
+const SECRET_KEY = "mysecretkey"; // In real apps, store this in .env
+
+// ------------------------------
+// Temporary Account Data
+// ------------------------------
+let balance = 1000; // initial balance
+
+// ------------------------------
+// Middleware for JWT Verification
+// ------------------------------
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) {
+    return res.status(401).json({ message: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Bearer token missing" });
+  }
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// ------------------------------
+// Routes
+// ------------------------------
+
+// Root route
+app.get("/", (req, res) => {
+  res.json({
+    message: "Welcome to Secure Banking API — use /login to get started.",
+  });
+});
+
+// Login route — returns JWT token
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // Hardcoded credentials
+  if (username === "user1" && password === "password123") {
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: "1h" });
+    return res.status(200).json({ token });
+  }
+
+  return res.status(401).json({ message: "Invalid username or password" });
+});
+
+// Protected: Check account balance
+app.get("/balance", authMiddleware, (req, res) => {
+  res.json({ balance });
+});
+
+// Protected: Deposit money
+app.post("/deposit", authMiddleware, (req, res) => {
+  const { amount } = req.body;
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ message: "Invalid deposit amount" });
+  }
+  balance += amount;
+  res.json({ message: `Deposited $${amount}`, newBalance: balance });
+});
+
+// Protected: Withdraw money
+app.post("/withdraw", authMiddleware, (req, res) => {
+  const { amount } = req.body;
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ message: "Invalid withdrawal amount" });
+  }
+  if (amount > balance) {
+    return res.status(400).json({ message: "Insufficient balance" });
+  }
+  balance -= amount;
+  res.json({ message: `Withdrew $${amount}`, newBalance: balance });
+});
+
+// ------------------------------
+// Start Server
+// ------------------------------
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
+});
