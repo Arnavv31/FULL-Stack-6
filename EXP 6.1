@@ -1,1 +1,65 @@
+// app.js
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+// ===================== Logger Middleware =====================
+const loggerMiddleware = (req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.originalUrl}`);
+  next();
+};
+app.use(loggerMiddleware);
+
+// ===================== Auth Middleware =====================
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+
+  if (!authHeader) {
+    return res.status(401).json({ error: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if (token !== "mysecrettoken") {
+    return res.status(403).json({ error: "Invalid or missing Bearer token" });
+  }
+
+  next();
+};
+
+// ===================== Controllers =====================
+const publicRoute = (req, res) => {
+  res.json({
+    message: "This is a public route — no authentication required.",
+  });
+};
+
+const protectedRoute = (req, res) => {
+  res.json({
+    message: "Welcome! You have access to the protected route.",
+  });
+};
+
+// ===================== Routes =====================
+const router = express.Router();
+
+router.get("/", (req, res) => {
+  res.json({
+    message: "Welcome! Use /public or /protected routes.",
+  });
+});
+
+router.get("/public", publicRoute);
+router.get("/protected", authMiddleware, protectedRoute);
+
+// Mount routes
+app.use("/", router);
+
+// ===================== Start Server =====================
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
 
